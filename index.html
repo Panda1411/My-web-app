@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mind Threads V2</title>
+    <style>
+        /* --- CSS VARIABLES --- */
+        :root {
+            --bg: #f4f4f5; --bg-card: #ffffff;
+            --text: #18181b; --text-soft: #52525b; --muted: #a1a1aa;
+            --border: #e4e4e7;
+            --accent: #2563eb; --accent-soft: #dbeafe; --accent-fg: #1e40af;
+            --danger: #ef4444; --danger-bg: #fee2e2;
+            --success: #10b981; --success-bg: #d1fae5;
+            --warning: #f59e0b; --warning-bg: #fef3c7;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --radius-card: 12px; --radius-input: 8px;
+            --nav-height: 60px; --top-height: 100px;
+        }
+        
+        /* Themes */
+        body[data-theme="gray"] { --bg: #18181b; --bg-card: #27272a; --text: #f4f4f5; --text-soft: #a1a1aa; --muted: #52525b; --border: #3f3f46; --accent: #e4e4e7; --accent-soft: #3f3f46; --accent-fg: #ffffff; }
+        body[data-theme="sand"] { --bg: #fdf6e3; --bg-card: #eee8d5; --text: #433633; --border: #d6d3d1; --accent: #d97706; --accent-soft: #fde68a; --accent-fg: #92400e; }
+        body[data-theme="ocean"] { --bg: #0f172a; --bg-card: #1e293b; --text: #e2e8f0; --border: #334155; --accent: #06b6d4; --accent-soft: #164e63; --accent-fg: #cffafe; }
+        body[data-theme="forest"] { --bg: #14251f; --bg-card: #1e352f; --text: #ecfccb; --border: #384e3c; --accent: #84cc16; --accent-soft: #365314; --accent-fg: #d9f99d; }
+        
+        /* New Palettes */
+        body[data-theme="sunset"] { --bg: #2a1b2d; --bg-card: #452c48; --text: #ffe4e1; --muted: #d8bfd8; --border: #5e3b61; --accent: #f0932b; --accent-soft: #5e3c58; --accent-fg: #ffbe76; }
+        body[data-theme="berry"]   { --bg: #3b0d19; --bg-card: #571628; --text: #ffe3e8; --muted: #bfa3aa; --border: #75223a; --accent: #ec4899; --accent-soft: #831843; --accent-fg: #fbcfe8; }
+        body[data-theme="midnight"]{ --bg: #000000; --bg-card: #111111; --text: #e0e0e0; --muted: #666666; --border: #333333; --accent: #00ff9d; --accent-soft: #003322; --accent-fg: #00cc7a; }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* --- LAYOUT --- */
+        .app-container { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; width: 100%; }
+
+        /* --- TOP BAR --- */
+        .top-bar {
+            height: var(--top-height); background: var(--bg-card); border-bottom: 1px solid var(--border);
+            padding: 10px 16px; display: flex; flex-direction: column; justify-content: center; gap: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); z-index: 10;
+        }
+        .top-row { display: flex; justify-content: space-between; align-items: center; }
+        .app-identity { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+        .logo-badge { background: var(--accent); color: var(--bg-card); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        
+        .sync-row { display: flex; gap: 8px; align-items: center; }
+        .sync-input { 
+            flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid var(--border); 
+            border-radius: 6px; background: var(--bg); color: var(--text); outline: none;
+        }
+        .status-pill {
+            font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px;
+            background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+            white-space: nowrap; transition: 0.3s;
+        }
+        .status-pill.active { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+        .status-pill.updating { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
+        .status-pill.error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+        /* --- MAIN CONTENT --- */
+        .main-content { flex: 1; overflow-y: auto; padding: 16px 16px 80px 16px; display: none; }
+        .main-content.active { display: block; }
+        .centered-col { max-width: 480px; margin: 0 auto; }
+
+        .card { background: var(--bg-card); border-radius: var(--radius-card); padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .card-header { display: flex; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 18px; align-items: center; }
+        
+        .btn { border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; background: var(--bg); color: var(--text); }
+        .btn-primary { background: var(--accent); color: white; }
+        body[data-theme="gray"] .btn-primary, body[data-theme="ocean"] .btn-primary, body[data-theme="sunset"] .btn-primary, body[data-theme="berry"] .btn-primary, body[data-theme="midnight"] .btn-primary { color: var(--bg-card); }
+        .btn-ghost { background: transparent; color: var(--accent); }
+        .btn-danger { background: transparent; color: var(--danger); }
+        .btn-xs { padding: 2px 6px; font-size: 12px; margin-left: 8px; cursor: pointer; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
+
+        .list-item { padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .thread-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .thread-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+        
+        input[type="text"], textarea, select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 6px; }
+
+        /* --- TABLES --- */
+        .analysis-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+        .analysis-table th { text-align: left; color: var(--muted); border-bottom: 1px solid var(--border); padding: 6px; font-size: 11px; text-transform: uppercase; }
+        .analysis-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); }
+        .analysis-table .num { text-align: right; font-weight: bold; color: var(--accent); }
+
+        .bottom-nav { height: var(--nav-height); background: var(--bg-card); border-top: 1px solid var(--border); position: fixed; bottom: 0; left: 0; right: 0; display: flex; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
+        .nav-btn { flex: 1; border: none; background: transparent; color: var(--muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+        .nav-btn.active { color: var(--accent-fg); background: var(--accent-soft); }
+
+        .chain-display { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px; border: 1px dashed var(--border); border-radius: 8px; min-height: 50px; margin-bottom: 10px; }
+        .pill { border: 1px solid var(--accent); color: var(--text); padding: 4px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: var(--bg-card); }
+        
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(2px); }
+        .modal-overlay.active { display: flex; }
+        .modal-card { background: var(--bg-card); width: 100%; max-width: 400px; border-radius: 12px; padding: 20px; position: relative; }
+        .modal-close { position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; }
+    </style>
+</head>
+<body data-theme="light">
+
+<div class="app-container">
+    <header class="top-bar">
+        <div class="top-row">
+            <div class="app-identity">
+                <div class="logo-badge">V2</div>
+                <span>Mind Threads</span>
+            </div>
+            <select class="sync-input" style="width: 100px; flex:none;" onchange="window.switchTheme(this.value)">
+                <option value="light">Light</option>
+                <option value="gray">Gray</option>
+                <option value="sand">Sand</option>
+                <option value="ocean">Ocean</option>
+                <option value="forest">Forest</option>
+                <option value="sunset">Sunset</option>
+                <option value="berry">Berry</option>
+                <option value="midnight">Midnight</option>
+            </select>
+        </div>
+        <div class="sync-row">
+            <input type="text" id="sync-id-input" class="sync-input" placeholder="Sync ID (e.g. project-x)" onblur="window.updateSyncId()">
+            <div id="sync-status" class="status-pill">Offline</div>
+        </div>
+    </header>
+
+    <main id="page-elements" class="main-content active">
+        <div class="centered-col">
+            <div class="card">
+                <div class="card-header">Elements <span id="el-count" style="font-size:14px; color:var(--muted)">0</span></div>
+                <div id="elements-list" style="max-height:300px; overflow-y:auto;"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Manage</div>
+                <input type="hidden" id="el-id">
+                <input type="text" id="el-tag" placeholder="Tag (e.g. IDEA)">
+                <textarea id="el-ctx" rows="3" placeholder="Context text..."></textarea>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary" onclick="window.saveElement()">Save</button>
+                    <button class="btn btn-danger" onclick="window.deleteElement()">Delete</button>
+                    <button class="btn" onclick="window.clearForm()">Clear</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="page-threads" class="main-content">
+        <div class="centered-col">
+            <div class="card">
+                <div class="card-header">Builder</div>
+                <div id="current-chain" class="chain-display"><span style="color:var(--muted); font-size:12px; width:100%; text-align:center;">Add elements below</span></div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary" onclick="window.saveThread()">Save Thread</button>
+                    <button class="btn" onclick="window.undoChain()">Undo</button>
+                    <button class="btn" onclick="window.clearChain()">Clear</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Picker</div>
+                <div id="picker-list" style="max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Threads</div>
+                <div id="threads-list" style="max-height:300px; overflow-y:auto;"></div>
+            </div>
+        </div>
+    </main>
+
+    <main id="page-analysis" class="main-content">
+        <div class="centered-col">
+            <div class="card">
+                <div class="card-header">Usage</div>
+                <div id="analysis-usage"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Transitions</div>
+                <div id="analysis-transitions"></div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="window.switchPage('elements', this)">Elements</button>
+        <button class="nav-btn" onclick="window.switchPage('threads', this)">Threads</button>
+        <button class="nav-btn" onclick="window.switchPage('analysis', this)">Analysis</button>
+    </nav>
+</div>
+
+<div id="modal-backdrop" class="modal-overlay" onclick="window.closeModal(event)">
+    <div class="modal-card">
+        <button class="modal-close" onclick="window.closeModalForce()">×</button>
+        <h3 id="m-title" style="margin:0 0 5px 0;"></h3>
+        <span id="m-tag" style="background:var(--accent-soft); color:var(--accent-fg); padding:2px 6px; border-radius:4px; font-size:12px; font-weight:bold;"></span>
+        <p id="m-ctx" style="white-space:pre-wrap; color:var(--text-soft); margin-top:15px;"></p>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCecQWk3AdWqA016gFtamAxmnQrS58I3Fs",
+        projectId: "mindmap-58ea4",
+        appId: "1:984406880104:web:b877f2210873775f3170dd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // STATE
+    let appData = { elements: [], threads: [], theme: 'light', elementCounter: 0 };
+    let currentThreadIds = [];
+    let syncId = "public"; 
+    let unsubscribe = null;
+
+    // --- INITIALIZATION ---
+    const savedSyncId = localStorage.getItem('mt_sync_id');
+    const savedData = localStorage.getItem('mt_local_data');
+    
+    if(savedSyncId) syncId = savedSyncId;
+    document.getElementById('sync-id-input').value = syncId;
+
+    if(savedData) {
+        try { appData = { ...appData, ...JSON.parse(savedData) }; applyTheme(appData.theme); renderAll(); } catch(e){}
+    }
+    
+    // Connect immediately
+    connectToSyncId(syncId);
+
+    // --- SYNC LOGIC ---
+    function connectToSyncId(id) {
+        if(unsubscribe) unsubscribe();
+        setStatus('updating', 'Connecting...');
+        
+        // SIMPLE PATH: No User IDs. Just Rooms.
+        const docRef = doc(db, 'artifacts', 'mind-threads-v2', 'rooms', id);
+
+        unsubscribe = onSnapshot(docRef, (snap) => {
+            if(snap.exists()) {
+                const cloudData = snap.data();
+                appData = { ...appData, ...cloudData };
+                
+                // Safe Defaults
+                if(!appData.elements) appData.elements = [];
+                if(!appData.threads) appData.threads = [];
+                if(appData.elementCounter === undefined) appData.elementCounter = 0;
+
+                saveLocal();
+                applyTheme(appData.theme);
+                renderAll();
+                setStatus('active', 'Synced');
+            } else {
+                // New Room, Create it
+                saveToCloud(true);
+            }
+        }, (err) => {
+            console.error(err);
+            setStatus('error', 'Perms Error (Update Rules)');
+        });
+    }
+
+    async function saveToCloud(isInitial = false) {
+        if (!isInitial) setStatus('updating', 'Saving...');
+        saveLocal();
+        const docRef = doc(db, 'artifacts', 'mind-threads-v2', 'rooms', syncId);
+        try {
+            await setDoc(docRef, appData);
+        } catch(e) {
+            console.error(e);
+            setStatus('error', 'Save Failed');
+        }
+    }
+
+    function saveLocal() {
+        localStorage.setItem('mt_local_data', JSON.stringify(appData));
+    }
+
+    // --- ACTIONS ---
+
+    window.updateSyncId = function() {
+        const input = document.getElementById('sync-id-input').value.trim();
+        if(input && input !== syncId) {
+            syncId = input;
+            localStorage.setItem('mt_sync_id', syncId);
+            connectToSyncId(syncId);
+        }
+    }
+
+    window.saveElement = function() {
+        const id = document.getElementById('el-id').value;
+        const tag = document.getElementById('el-tag').value;
+        const ctx = document.getElementById('el-ctx').value;
+        if(!tag) return alert("Tag needed");
+
+        if(id) {
+            const el = appData.elements.find(e => e.code === id);
+            if(el) { el.tag = tag; el.context = ctx; }
+        } else {
+            // INCREMENT COUNTER
+            appData.elementCounter++;
+            appData.elements.push({ 
+                code: `E-${appData.elementCounter}`, 
+                tag, context: ctx, id: Date.now() 
+            });
+        }
+        window.clearForm();
+        saveToCloud();
+    }
+
+    window.deleteElement = function() {
+        const id = document.getElementById('el-id').value;
+        if(!id) return;
+        
+        // Remove element
+        appData.elements = appData.elements.filter(e => e.code !== id);
+        
+        // COUNTER FIX: If 0 elements left, reset counter to 0
+        if (appData.elements.length === 0) {
+            appData.elementCounter = 0;
+        }
+
+        window.clearForm();
+        saveToCloud();
+    }
+
+    window.clearForm = function() {
+        document.getElementById('el-id').value = '';
+        document.getElementById('el-tag').value = '';
+        document.getElementById('el-ctx').value = '';
+    }
+
+    window.loadElement = function(code) {
+        const el = appData.elements.find(e => e.code === code);
+        if(!el) return;
+        document.getElementById('el-id').value = el.code;
+        document.getElementById('el-tag').value = el.tag;
+        document.getElementById('el-ctx').value = el.context;
+    }
+
+    window.saveThread = function() {
+        if(currentThreadIds.length === 0) return;
+        appData.threads.unshift({ 
+            id: 't-'+Date.now(), 
+            timestamp: Date.now(),
+            elementIds: [...currentThreadIds] 
+        });
+        currentThreadIds = [];
+        renderChain();
+        saveToCloud();
+    }
+
+    window.deleteThread = function(tid) {
+        if(!confirm("Delete thread?")) return;
+        appData.threads = appData.threads.filter(t => t.id !== tid);
+        saveToCloud();
+    }
+
+    window.addToChain = function(code) { currentThreadIds.push(code); renderChain(); }
+    window.undoChain = function() { currentThreadIds.pop(); renderChain(); }
+    window.clearChain = function() { currentThreadIds = []; renderChain(); }
+
+    window.switchTheme = function(t) {
+        appData.theme = t;
+        applyTheme(t);
+        saveToCloud();
+    }
+
+    function applyTheme(t) { document.body.dataset.theme = t; }
+
+    window.switchPage = function(page, btn) {
+        document.querySelectorAll('.main-content').forEach(e => e.classList.remove('active'));
+        document.getElementById('page-'+page).classList.add('active');
+        document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
+        btn.classList.add('active');
+        renderAll();
+    }
+
+    // --- RENDERERS ---
+
+    function renderAll() {
+        // Elements List
+        const elList = document.getElementById('elements-list');
+        elList.innerHTML = appData.elements.map(e => `
+            <div class="list-item">
+                <div onclick="window.loadElement('${e.code}')" style="flex:1; cursor:pointer;">
+                    <b>${e.code}</b> · ${e.tag}
+                </div>
+                <button class="btn btn-ghost btn-xs" onclick="window.viewModal('${e.code}')">View</button>
+            </div>`).join('');
+        document.getElementById('el-count').textContent = appData.elements.length;
+
+        // Picker
+        document.getElementById('picker-list').innerHTML = appData.elements.map(e => `
+            <div class="list-item">
+                <span>${e.code} · ${e.tag}</span>
+                <button class="btn btn-primary" onclick="window.addToChain('${e.code}')">+</button>
+            </div>`).join('');
+
+        // Threads List
+        document.getElementById('threads-list').innerHTML = appData.threads.map(t => {
+            const date = new Date(t.timestamp || parseInt(t.id.split('-')[1]));
+            const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            return `
+            <div class="list-item" style="display:block;">
+                <div class="thread-row">
+                    <div style="font-size:13px; font-weight:bold;">${t.elementIds.join(' → ')}</div>
+                    <button class="btn-xs" style="color:var(--danger); border-color:var(--danger);" onclick="window.deleteThread('${t.id}')">×</button>
+                </div>
+                <div class="thread-meta">${dateStr}</div>
+            </div>`;
+        }).join('');
+        
+        renderChain();
+        updateAnalysis();
+    }
+
+    function renderChain() {
+        const c = document.getElementById('current-chain');
+        if(currentThreadIds.length === 0) c.innerHTML = '<span style="color:var(--muted); font-size:12px; width:100%; text-align:center;">Add elements below</span>';
+        else c.innerHTML = currentThreadIds.map(id => {
+            const el = appData.elements.find(e=>e.code === id);
+            return `<div class="pill">${id} ${el ? el.tag : ''}</div>`;
+        }).join('<span style="color:var(--muted)">→</span>');
+    }
+
+    function updateAnalysis() {
+        if(appData.elements.length === 0 || appData.threads.length === 0) {
+            document.getElementById('analysis-usage').innerHTML = '<div style="text-align:center; padding:10px; color:var(--muted)">No data</div>';
+            document.getElementById('analysis-transitions').innerHTML = '<div style="text-align:center; padding:10px; color:var(--muted)">No data</div>';
+            return;
+        }
+
+        // Usage Counts
+        const counts = {};
+        appData.elements.forEach(e => counts[e.code] = 0);
+        appData.threads.forEach(t => t.elementIds.forEach(id => { if(counts[id]!==undefined) counts[id]++ }));
+        
+        const sortedUsage = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+        
+        let htmlU = `<table class="analysis-table"><tr><th>Element</th><th>Tag</th><th class="num">Count</th></tr>`;
+        sortedUsage.forEach(([code, count]) => {
+            if(count > 0) {
+                const el = appData.elements.find(e=>e.code === code);
+                htmlU += `<tr><td>${code}</td><td>${el ? el.tag : '?'}</td><td class="num">${count}</td></tr>`;
+            }
+        });
+        htmlU += '</table>';
+        document.getElementById('analysis-usage').innerHTML = htmlU;
+
+        // Transitions
+        const trans = {};
+        appData.threads.forEach(t => {
+            for(let i=0; i < t.elementIds.length - 1; i++) {
+                const key = `${t.elementIds[i]} → ${t.elementIds[i+1]}`;
+                trans[key] = (trans[key] || 0) + 1;
+            }
+        });
+        
+        const sortedTrans = Object.entries(trans).sort((a,b) => b[1] - a[1]);
+        
+        let htmlT = `<table class="analysis-table"><tr><th>From → To</th><th class="num">Freq</th></tr>`;
+        if(sortedTrans.length === 0) htmlT += '<tr><td colspan="2" style="text-align:center">No transitions</td></tr>';
+        else sortedTrans.forEach(([key, count]) => {
+            htmlT += `<tr><td>${key}</td><td class="num">${count}</td></tr>`;
+        });
+        htmlT += '</table>';
+        document.getElementById('analysis-transitions').innerHTML = htmlT;
+    }
+
+    function setStatus(type, text) {
+        const el = document.getElementById('sync-status');
+        el.className = `status-pill ${type}`;
+        el.textContent = text;
+    }
+
+    // Modal Helpers
+    window.viewModal = function(code) {
+        const el = appData.elements.find(e => e.code === code);
+        if(!el) return;
+        document.getElementById('m-title').textContent = el.code;
+        document.getElementById('m-tag').textContent = el.tag;
+        document.getElementById('m-ctx').textContent = el.context;
+        document.getElementById('modal-backdrop').classList.add('active');
+    }
+    window.closeModalForce = function() { document.getElementById('modal-backdrop').classList.remove('active'); }
+    window.closeModal = function(e) { if(e.target.id === 'modal-backdrop') window.closeModalForce(); }
+
+</script>
+</body>
+</html>
