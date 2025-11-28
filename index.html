@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mind Threads + Cloud</title>
+    <style>
+        /* --- CSS VARIABLES & THEMES --- */
+        :root {
+            /* Defaults (Light) */
+            --bg: #f4f4f5;
+            --bg-card: #ffffff;
+            --text: #18181b;
+            --text-soft: #52525b;
+            --muted: #a1a1aa;
+            --border: #e4e4e7;
+            --accent: #2563eb;       /* Blue */
+            --accent-soft: #dbeafe;
+            --accent-fg: #1e40af;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --success: #10b981;
+            --success-bg: #d1fae5;
+            --warning: #f59e0b;
+            --warning-bg: #fef3c7;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius-card: 12px;
+            --radius-pill: 9999px;
+            --radius-input: 8px;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --nav-height: 60px;
+            --top-height: 60px;
+        }
+
+        /* Gray Theme */
+        body[data-theme="gray"] {
+            --bg: #18181b;
+            --bg-card: #27272a;
+            --text: #f4f4f5;
+            --text-soft: #a1a1aa;
+            --muted: #52525b;
+            --border: #3f3f46;
+            --accent: #e4e4e7;
+            --accent-soft: #3f3f46;
+            --accent-fg: #ffffff;
+            --danger: #f87171;
+            --danger-bg: #451a1a;
+            --success: #34d399;
+            --success-bg: #064e3b;
+            --warning: #fbbf24;
+            --warning-bg: #451a03;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Sand Theme */
+        body[data-theme="sand"] {
+            --bg: #fdf6e3;
+            --bg-card: #eee8d5;
+            --text: #433633;
+            --text-soft: #5c534e;
+            --muted: #a8a29e;
+            --border: #d6d3d1;
+            --accent: #d97706;
+            --accent-soft: #fde68a;
+            --accent-fg: #92400e;
+        }
+
+        /* Ocean Theme */
+        body[data-theme="ocean"] {
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --text: #e2e8f0;
+            --text-soft: #94a3b8;
+            --muted: #475569;
+            --border: #334155;
+            --accent: #06b6d4;
+            --accent-soft: #164e63;
+            --accent-fg: #cffafe;
+        }
+
+        /* Forest Theme */
+        body[data-theme="forest"] {
+            --bg: #14251f;
+            --bg-card: #1e352f;
+            --text: #ecfccb;
+            --text-soft: #a3b899;
+            --muted: #4f614a;
+            --border: #384e3c;
+            --accent: #84cc16;
+            --accent-soft: #365314;
+            --accent-fg: #d9f99d;
+        }
+
+        /* --- RESET & BASE --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-main);
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- LAYOUT --- */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+        }
+
+        /* --- TOP BAR --- */
+        .top-bar {
+            height: var(--top-height);
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+        .app-identity { display: flex; align-items: center; gap: 10px; }
+        .logo-badge {
+            background-color: var(--accent);
+            color: var(--bg-card);
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 14px;
+        }
+        body[data-theme="gray"] .logo-badge, body[data-theme="ocean"] .logo-badge, body[data-theme="forest"] .logo-badge {
+             color: var(--bg); 
+        }
+
+        .app-title { font-weight: 700; font-size: 18px; letter-spacing: -0.5px; margin-right: 8px; }
+        
+        /* SYNC INDICATOR (TEXT BASED) */
+        .sync-status {
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: default;
+            transition: all 0.3s;
+        }
+        /* States */
+        .sync-status[data-status="synced"] { 
+            background-color: var(--success-bg); color: var(--success); 
+        }
+        .sync-status[data-status="syncing"] { 
+            background-color: var(--warning-bg); color: var(--warning); 
+        }
+        .sync-status[data-status="error"] { 
+            background-color: var(--danger-bg); color: var(--danger); cursor: pointer;
+        }
+        .sync-status[data-status="offline"] { 
+            background-color: var(--bg); color: var(--muted); border: 1px solid var(--border);
+        }
+
+        .palette-control { display: flex; flex-direction: column; align-items: flex-end; margin-left: auto; }
+        .palette-label { font-size: 10px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+        .theme-select {
+            background: var(--bg); border: 1px solid var(--border); color: var(--text);
+            padding: 4px 8px; border-radius: var(--radius-input); font-size: 14px; outline: none;
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 16px 80px 16px;
+            display: none;
+        }
+        .main-content.active { display: block; }
+        .centered-col { max-width: 480px; margin: 0 auto; }
+
+        /* --- CARDS --- */
+        .card {
+            background-color: var(--bg-card);
+            border-radius: var(--radius-card);
+            padding: 16px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+        }
+        .card-title { font-size: 18px; font-weight: 700; }
+        .badge {
+            background-color: var(--bg); border: 1px solid var(--border);
+            color: var(--text-soft); padding: 2px 8px; border-radius: var(--radius-pill);
+            font-size: 12px; font-weight: 600;
+        }
+
+        /* --- LISTS --- */
+        .scroll-list {
+            max-height: 270px; overflow-y: auto;
+            border-top: 1px solid var(--border);
+        }
+        .list-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        .list-item:last-child { border-bottom: none; }
+        .item-info { flex: 1; padding-right: 12px; }
+        .item-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+        .item-sub { font-size: 13px; color: var(--text-soft); line-height: 1.3; }
+        .item-actions { display: flex; gap: 8px; align-items: center; }
+        .empty-state {
+            text-align: center; color: var(--muted); padding: 30px 0; font-size: 14px; font-style: italic;
+        }
+
+        /* --- FORMS & INPUTS --- */
+        input[type="text"], textarea {
+            width: 100%; padding: 12px; margin-bottom: 12px;
+            border: 1px solid var(--border); background-color: var(--bg);
+            color: var(--text); border-radius: var(--radius-input);
+            font-size: 16px; font-family: var(--font-main);
+            resize: none; outline: none; transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus { border-color: var(--accent); }
+        label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; }
+
+        /* --- BUTTONS --- */
+        .btn {
+            border: none; cursor: pointer; font-family: var(--font-main);
+            font-size: 14px; font-weight: 600; padding: 8px 16px;
+            border-radius: var(--radius-input); transition: opacity 0.2s;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .btn:active { opacity: 0.7; transform: scale(0.98); }
+        .btn-primary { background-color: var(--accent); color: white; }
+        body[data-theme="gray"] .btn-primary, body[data-theme="ocean"] .btn-primary, body[data-theme="forest"] .btn-primary {
+            color: var(--bg-card);
+        }
+        .btn-ghost { background-color: transparent; color: var(--accent); }
+        .btn-danger { background-color: transparent; color: var(--danger); }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+
+        /* --- THREAD CHAIN UI --- */
+        .chain-display {
+            min-height: 60px; padding: 12px;
+            background-color: var(--bg); border-radius: var(--radius-input);
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+            border: 1px dashed var(--border);
+            margin-bottom: 12px;
+        }
+        .chain-pill {
+            background-color: var(--bg-card); border: 1px solid var(--accent);
+            color: var(--text); padding: 4px 10px; border-radius: var(--radius-pill);
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .chain-arrow { color: var(--muted); font-size: 14px; }
+
+        /* --- ANALYSIS TABLE --- */
+        .analysis-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .analysis-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; padding: 8px 4px; border-bottom: 1px solid var(--border); }
+        .analysis-table td { padding: 10px 4px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .analysis-table tr:last-child td { border-bottom: none; }
+        .count-col { text-align: right; font-weight: 700; color: var(--accent); }
+
+        /* --- BOTTOM NAV --- */
+        .bottom-nav {
+            height: var(--nav-height);
+            background-color: var(--bg-card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-btn {
+            flex: 1; border: none; background: transparent;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--muted); cursor: pointer; font-family: var(--font-main);
+            font-size: 13px; font-weight: 600; transition: all 0.2s;
+        }
+        .nav-btn.active {
+            color: var(--accent-fg);
+            background-color: var(--accent-soft);
+        }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6); z-index: 200;
+            display: none; align-items: center; justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(2px);
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-card {
+            background-color: var(--bg-card); width: 100%; max-width: 400px;
+            border-radius: var(--radius-card); padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            position: relative; border: 1px solid var(--border);
+        }
+        .modal-close {
+            position: absolute; top: 12px; right: 12px;
+            background: transparent; border: none; font-size: 24px;
+            color: var(--muted); cursor: pointer; line-height: 1;
+        }
+        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; color: var(--text); }
+        .modal-tag {
+            display: inline-block; background: var(--accent-soft); color: var(--accent-fg);
+            padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-bottom: 16px;
+        }
+        .modal-context {
+            font-size: 15px; line-height: 1.6; color: var(--text-soft);
+            white-space: pre-wrap; max-height: 300px; overflow-y: auto;
+        }
+
+    </style>
+</head>
+<body data-theme="light">
+
+    <div class="app-container">
+
+        <header class="top-bar">
+            <div class="app-identity">
+                <div class="logo-badge">MT</div>
+                <div class="app-title">Mind Threads</div>
+                <div id="sync-status" class="sync-status" data-status="offline" title="Click for details" onclick="window.showSyncError()">
+                    Offline
+                </div>
+            </div>
+            <div class="palette-control">
+                <div class="palette-label">Palette</div>
+                <select id="themeSelect" class="theme-select" onchange="window.switchTheme(this.value)">
+                    <option value="light">Light</option>
+                    <option value="gray">Gray</option>
+                    <option value="sand">Sand</option>
+                    <option value="ocean">Ocean</option>
+                    <option value="forest">Forest</option>
+                </select>
+            </div>
+        </header>
+
+        <main id="page-elements" class="main-content active">
+            <div class="centered-col">
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Elements</span>
+                        <span id="el-count-badge" class="badge">0</span>
+                    </div>
+                    <div id="elements-list" class="scroll-list">
+                        <div class="empty-state">No elements.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Edit / Add</span>
+                        <button class="btn btn-ghost btn-sm" onclick="window.clearElementForm()">New</button>
+                    </div>
+                    <input type="hidden" id="el-id-input">
+                    <label>Tag</label>
+                    <input type="text" id="el-tag-input" placeholder="e.g. DRIFT">
+                    <label>Context</label>
+                    <textarea id="el-ctx-input" rows="4" placeholder="Full text for this element."></textarea>
+                    
+                    <div class="btn-row">
+                        <button class="btn btn-primary" onclick="window.saveElement()">Save</button>
+                        <button class="btn btn-danger" onclick="window.deleteElement()">Delete</button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <main id="page-threads" class="main-content">
+            <div class="centered-col">
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Current Thread</span>
+                        <span id="thread-count-badge" class="badge">0</span>
+                    </div>
+                    <label>Chain</label>
+                    <div id="current-chain" class="chain-display">
+                        <div style="color:var(--muted); font-size:14px; width:100%; text-align:center;">Tap "+ Add" on elements below.</div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-primary" onclick="window.saveThread()">Save</button>
+                        <button class="btn btn-ghost" onclick="window.undoChain()">Undo last</button>
+                        <button class="btn btn-ghost" onclick="window.clearChain()">Clear</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Element Picker</span>
+                    </div>
+                    <label>Elements (Add in order)</label>
+                    <div id="picker-list" class="scroll-list">
+                        </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Threads</span>
+                    </div>
+                    <div id="threads-list" class="scroll-list">
+                        </div>
+                </div>
+
+            </div>
+        </main>
+
+        <main id="page-analysis" class="main-content">
+            <div class="centered-col">
+                
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Overview</span>
+                        <span id="analysis-badge" class="badge">Summary</span>
+                    </div>
+                    <div id="analysis-overview-container">
+                        </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Transitions</span>
+                    </div>
+                    <div id="analysis-transitions-container">
+                        </div>
+                </div>
+
+            </div>
+        </main>
+
+        <nav class="bottom-nav">
+            <button class="nav-btn active" onclick="window.switchPage('elements', this)">
+                <span style="font-size:18px; margin-bottom:2px;">❖</span>
+                Elements
+            </button>
+            <button class="nav-btn" onclick="window.switchPage('threads', this)">
+                <span style="font-size:18px; margin-bottom:2px;">☍</span>
+                Threads
+            </button>
+            <button class="nav-btn" onclick="window.switchPage('analysis', this)">
+                <span style="font-size:18px; margin-bottom:2px;">📊</span>
+                Analysis
+            </button>
+        </nav>
+
+    </div>
+
+    <div id="modal-backdrop" class="modal-overlay" onclick="window.handleModalBackdrop(event)">
+        <div class="modal-card">
+            <button class="modal-close" onclick="window.closeModal()">×</button>
+            <div id="modal-title" class="modal-title">E-?</div>
+            <div id="modal-tag" class="modal-tag">TAG</div>
+            <div id="modal-context" class="modal-context">Full text...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCecQWk3AdWqA016gFtamAxmnQrS58I3Fs",
+            authDomain: "mindmap-58ea4.firebaseapp.com",
+            projectId: "mindmap-58ea4",
+            storageBucket: "mindmap-58ea4.firebasestorage.app",
+            messagingSenderId: "984406880104",
+            appId: "1:984406880104:web:b877f2210873775f3170dd",
+            measurementId: "G-YJT43715BT"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // CORRECTION: Ensure segments are even.
+        // Collection: artifacts
+        // Document: mind-threads-v1
+        // Collection: users
+        // Document: {uid}
+        const APP_ID = 'mind-threads-v1'; 
+
+        // --- DATA STATE ---
+        let appData = {
+            elementCounter: 0,
+            elements: [], 
+            threads: [],
+            theme: 'light'
+        };
+
+        let currentThreadElementIds = [];
+        let editingThreadId = null;
+        let currentUser = null;
+        let lastSyncError = null;
+        const STORE_KEY = 'mind_threads_local_cache'; 
+
+        // --- HELPERS ---
+        function setSyncStatus(status, text, errorMsg = null) {
+            // Status: 'synced', 'syncing', 'error', 'offline'
+            const el = document.getElementById('sync-status');
+            el.dataset.status = status;
+            el.textContent = text;
+            
+            if (errorMsg) {
+                lastSyncError = errorMsg;
+                console.error("MT Sync Error:", errorMsg);
+            } else {
+                lastSyncError = null;
+            }
+        }
+
+        window.showSyncError = function() {
+            if (lastSyncError) {
+                alert("Firebase Error:\n" + lastSyncError + "\n\nNote: Check Firestore Rules if permission denied.");
+            }
+        };
+
+        // --- INITIALIZATION ---
+        // 1. Load Local Cache
+        const raw = localStorage.getItem(STORE_KEY);
+        if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                appData = { ...appData, ...parsed };
+                applyTheme(appData.theme);
+                renderAll();
+            } catch(e) { console.error("Cache parse error", e); }
+        }
+
+        // 2. Connect to Firebase
+        setSyncStatus('syncing', 'Connecting...');
+        
+        signInAnonymously(auth)
+            .then((userCredential) => {
+                currentUser = userCredential.user;
+                console.log("Logged in as", currentUser.uid);
+                setupFirestoreListener(currentUser.uid);
+            })
+            .catch((error) => {
+                setSyncStatus('error', 'Auth Failed', error.message);
+            });
+
+        function setupFirestoreListener(uid) {
+            // CORRECTED PATH: 4 segments (Even number)
+            // artifacts (col) -> mind-threads-v1 (doc) -> users (col) -> uid (doc)
+            const docRef = doc(db, 'artifacts', APP_ID, 'users', uid);
+
+            onSnapshot(docRef, (docSnap) => {
+                setSyncStatus('synced', 'Synced');
+                if (docSnap.exists()) {
+                    const cloudData = docSnap.data();
+                    appData = { ...appData, ...cloudData };
+                    localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+                    applyTheme(appData.theme);
+                    renderAll();
+                } else {
+                    // No cloud data yet, save current local
+                    saveDataToCloud(); 
+                }
+            }, (error) => {
+                setSyncStatus('error', 'DB Error', error.message);
+            });
+        }
+
+        async function saveDataToCloud() {
+            if (!currentUser) return;
+            
+            const currentStatus = document.getElementById('sync-status').dataset.status;
+            if (currentStatus === 'error' && !lastSyncError.includes("No document to update")) return; 
+
+            setSyncStatus('syncing', 'Saving...');
+            
+            // Save to Local Cache first
+            localStorage.setItem(STORE_KEY, JSON.stringify(appData));
+
+            try {
+                const docRef = doc(db, 'artifacts', APP_ID, 'users', currentUser.uid);
+                await setDoc(docRef, appData);
+                setSyncStatus('synced', 'Synced');
+            } catch (e) {
+                setSyncStatus('error', 'Save Failed', e.message);
+            }
+        }
+
+        // --- GLOBAL ACTIONS ---
+        window.saveElement = function() {
+            const idInput = document.getElementById('el-id-input').value;
+            const tag = document.getElementById('el-tag-input').value.trim();
+            const context = document.getElementById('el-ctx-input').value.trim();
+
+            if (!tag) { alert('Tag is required'); return; }
+
+            if (idInput) {
+                const idx = appData.elements.findIndex(e => e.code === idInput);
+                if (idx > -1) {
+                    appData.elements[idx].tag = tag;
+                    appData.elements[idx].context = context;
+                }
+            } else {
+                appData.elementCounter++;
+                const newCode = `E-${appData.elementCounter}`;
+                appData.elements.push({
+                    id: Date.now(), 
+                    code: newCode,
+                    tag: tag,
+                    context: context
+                });
+            }
+            saveDataToCloud();
+            window.clearElementForm();
+            renderAll();
+        };
+
+        window.deleteElement = function() {
+            const code = document.getElementById('el-id-input').value;
+            if (!code) return;
+            const used = appData.threads.some(t => t.elementIds.includes(code));
+            if (used) {
+                if (!confirm("Element used in threads. Delete anyway?")) return;
+            }
+            appData.elements = appData.elements.filter(e => e.code !== code);
+            saveDataToCloud();
+            window.clearElementForm();
+            renderAll();
+        };
+
+        window.saveThread = function() {
+            if (currentThreadElementIds.length === 0) {
+                alert("Thread is empty.");
+                return;
+            }
+            if (editingThreadId) {
+                const thread = appData.threads.find(t => t.id === editingThreadId);
+                if (thread) {
+                    thread.elementIds = [...currentThreadElementIds];
+                    thread.updatedAt = Date.now();
+                }
+            } else {
+                const newThread = {
+                    id: 't-' + Date.now(),
+                    createdAt: Date.now(),
+                    elementIds: [...currentThreadElementIds]
+                };
+                appData.threads.unshift(newThread);
+            }
+            saveDataToCloud();
+            currentThreadElementIds = [];
+            editingThreadId = null;
+            renderChain();
+            renderAll();
+        };
+
+        window.deleteThread = function(id) {
+            if(!confirm("Delete this thread?")) return;
+            appData.threads = appData.threads.filter(t => t.id !== id);
+            saveDataToCloud();
+            if (editingThreadId === id) {
+                editingThreadId = null;
+                currentThreadElementIds = [];
+                renderChain();
+            }
+            renderAll();
+        };
+
+        window.switchTheme = function(newTheme) {
+            applyTheme(newTheme);
+            appData.theme = newTheme;
+            saveDataToCloud();
+        };
+
+        function applyTheme(t) {
+            document.body.dataset.theme = t;
+            const sel = document.getElementById('themeSelect');
+            if(sel) sel.value = t;
+        }
+
+        // --- UI RENDERING ---
+        function renderAll() {
+            renderElementsList();
+            renderPickerList();
+            renderThreadsList();
+            updateAnalysis();
+        }
+
+        function renderElementsList() {
+            const list = document.getElementById('elements-list');
+            const badge = document.getElementById('el-count-badge');
+            badge.textContent = appData.elements.length;
+            if (appData.elements.length === 0) {
+                list.innerHTML = '<div class="empty-state">No elements.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            appData.elements.forEach(el => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                const shortCtx = el.context.length > 60 ? el.context.substring(0, 60) + '...' : el.context;
+                item.innerHTML = `
+                    <div class="item-info" onclick="window.loadElementToForm('${el.code}')">
+                        <div class="item-title">${el.code} · ${el.tag}</div>
+                        <div class="item-sub">${shortCtx}</div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-ghost btn-sm" onclick="window.openModal('${el.code}')">View</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        window.loadElementToForm = function(code) {
+            const el = appData.elements.find(e => e.code === code);
+            if (!el) return;
+            document.getElementById('el-id-input').value = el.code;
+            document.getElementById('el-tag-input').value = el.tag;
+            document.getElementById('el-ctx-input').value = el.context;
+            document.getElementById('el-tag-input').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        };
+
+        window.clearElementForm = function() {
+            document.getElementById('el-id-input').value = '';
+            document.getElementById('el-tag-input').value = '';
+            document.getElementById('el-ctx-input').value = '';
+        };
+
+        function renderPickerList() {
+            const list = document.getElementById('picker-list');
+            if (appData.elements.length === 0) {
+                list.innerHTML = '<div class="empty-state">Add elements in "Elements" tab first.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            appData.elements.forEach(el => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                const shortCtx = el.context.length > 60 ? el.context.substring(0, 60) + '...' : el.context;
+                item.innerHTML = `
+                    <div class="item-info">
+                        <div class="item-title">${el.code} · ${el.tag}</div>
+                        <div class="item-sub">${shortCtx}</div>
+                    </div>
+                    <div class="item-actions" style="flex-direction:column; gap:4px;">
+                        <button class="btn btn-primary btn-sm" onclick="window.addToChain('${el.code}')">+ Add</button>
+                        <button class="btn btn-ghost btn-sm" onclick="window.openModal('${el.code}')">View</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        window.addToChain = function(code) {
+            currentThreadElementIds.push(code);
+            renderChain();
+        };
+
+        window.undoChain = function() {
+            currentThreadElementIds.pop();
+            renderChain();
+        };
+
+        window.clearChain = function() {
+            if (currentThreadElementIds.length > 0) {
+                if(confirm("Clear current thread?")) {
+                    currentThreadElementIds = [];
+                    editingThreadId = null;
+                    renderChain();
+                }
+            }
+        };
+
+        function renderChain() {
+            const container = document.getElementById('current-chain');
+            if (currentThreadElementIds.length === 0) {
+                container.innerHTML = '<div style="color:var(--muted); font-size:14px; width:100%; text-align:center;">Tap "+ Add" on elements below.</div>';
+                return;
+            }
+            container.innerHTML = '';
+            currentThreadElementIds.forEach((code, index) => {
+                const el = appData.elements.find(e => e.code === code);
+                const tagName = el ? el.tag : '???';
+                const pill = document.createElement('div');
+                pill.className = 'chain-pill';
+                pill.innerHTML = `${code} <span style="font-weight:400; font-size:12px;">${tagName}</span>`;
+                pill.onclick = () => { if(el) window.openModal(code); };
+                container.appendChild(pill);
+                if (index < currentThreadElementIds.length - 1) {
+                    const arrow = document.createElement('span');
+                    arrow.className = 'chain-arrow';
+                    arrow.innerHTML = '→';
+                    container.appendChild(arrow);
+                }
+            });
+        }
+
+        function renderThreadsList() {
+            const list = document.getElementById('threads-list');
+            const badge = document.getElementById('thread-count-badge');
+            badge.textContent = appData.threads.length;
+            if (appData.threads.length === 0) {
+                list.innerHTML = '<div class="empty-state">No threads.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            appData.threads.forEach(t => {
+                const dateObj = new Date(t.updatedAt || t.createdAt);
+                const dateStr = dateObj.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + 
+                                ' · ' + dateObj.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+                const chainStr = t.elementIds.join(' → ');
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <div class="item-info">
+                        <div class="item-title" style="font-size:14px; line-height:1.4;">${chainStr}</div>
+                        <div class="item-sub">${dateStr}</div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-ghost btn-sm" onclick="window.editThread('${t.id}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="window.deleteThread('${t.id}')">Del</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        window.editThread = function(id) {
+            const t = appData.threads.find(th => th.id === id);
+            if (!t) return;
+            currentThreadElementIds = [...t.elementIds];
+            editingThreadId = id;
+            window.switchPage('threads');
+            document.querySelector('.main-content.active').scrollTop = 0;
+            renderChain();
+        };
+
+        function updateAnalysis() {
+            const containerOverview = document.getElementById('analysis-overview-container');
+            const containerTransitions = document.getElementById('analysis-transitions-container');
+            const badge = document.getElementById('analysis-badge');
+            const totalElements = appData.elements.length;
+            const totalThreads = appData.threads.length;
+            let totalSteps = 0;
+            appData.threads.forEach(t => totalSteps += t.elementIds.length);
+            badge.textContent = `${totalElements} E · ${totalThreads} T · ${totalSteps} S`;
+
+            if (totalElements === 0 || totalThreads === 0) {
+                containerOverview.innerHTML = '<div class="empty-state">Need elements and threads.</div>';
+                containerTransitions.innerHTML = '<div class="empty-state">No data.</div>';
+                return;
+            }
+            const elCounts = {};
+            appData.elements.forEach(e => elCounts[e.code] = 0);
+            appData.threads.forEach(t => {
+                t.elementIds.forEach(code => {
+                    if (elCounts[code] !== undefined) elCounts[code]++;
+                });
+            });
+            const sortedEls = Object.keys(elCounts).map(code => {
+                const el = appData.elements.find(e => e.code === code);
+                return { code, tag: el ? el.tag : '???', count: elCounts[code] };
+            }).sort((a,b) => b.count - a.count);
+
+            let htmlOv = `<table class="analysis-table">
+                <thead><tr><th>Element</th><th>Tag</th><th class="count-col">Count</th></tr></thead>
+                <tbody>`;
+            sortedEls.forEach(row => {
+                if (row.count > 0) {
+                    htmlOv += `<tr><td>${row.code}</td><td>${row.tag}</td><td class="count-col">${row.count}</td></tr>`;
+                }
+            });
+            htmlOv += `</tbody></table>`;
+            if (sortedEls.every(r => r.count === 0)) htmlOv = '<div class="empty-state">No usage recorded.</div>';
+            containerOverview.innerHTML = htmlOv;
+
+            const transitions = {};
+            appData.threads.forEach(t => {
+                for (let i = 0; i < t.elementIds.length - 1; i++) {
+                    const from = t.elementIds[i];
+                    const to = t.elementIds[i+1];
+                    const key = `${from}|${to}`;
+                    if (!transitions[key]) transitions[key] = 0;
+                    transitions[key]++;
+                }
+            });
+            const sortedTrans = Object.keys(transitions).map(key => {
+                const [from, to] = key.split('|');
+                return { from, to, count: transitions[key] };
+            }).sort((a,b) => b.count - a.count);
+
+            if (sortedTrans.length === 0) {
+                containerTransitions.innerHTML = '<div class="empty-state">No transitions yet.</div>';
+            } else {
+                let htmlTr = `<table class="analysis-table">
+                    <thead><tr><th>From &rarr; To</th><th class="count-col">Count</th></tr></thead>
+                    <tbody>`;
+                sortedTrans.forEach(row => {
+                    htmlTr += `<tr><td>${row.from} &rarr; ${row.to}</td><td class="count-col">${row.count}</td></tr>`;
+                });
+                htmlTr += `</tbody></table>`;
+                containerTransitions.innerHTML = htmlTr;
+            }
+        }
+
+        // --- GLOBAL UI HANDLERS ---
+        window.switchPage = function(pageId, btn) {
+            document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            else {
+                const index = ['elements', 'threads', 'analysis'].indexOf(pageId);
+                if(index > -1) document.querySelectorAll('.nav-btn')[index].classList.add('active');
+            }
+            if(pageId === 'analysis') updateAnalysis();
+            if(pageId === 'threads') {
+                renderPickerList();
+                renderThreadsList();
+            }
+            if(pageId === 'elements') renderElementsList();
+        };
+
+        window.openModal = function(elementCode) {
+            const el = appData.elements.find(e => e.code === elementCode);
+            if (!el) return;
+            document.getElementById('modal-title').textContent = el.code;
+            document.getElementById('modal-tag').textContent = el.tag || 'UNTAGGED';
+            document.getElementById('modal-context').textContent = el.context || '';
+            document.getElementById('modal-backdrop').classList.add('active');
+        };
+
+        window.closeModal = function() {
+            document.getElementById('modal-backdrop').classList.remove('active');
+        };
+
+        window.handleModalBackdrop = function(e) {
+            if (e.target.id === 'modal-backdrop') window.closeModal();
+        };
+
+    </script>
+</body>
+</html>
