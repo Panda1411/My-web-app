@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mind Threads Sync</title>
+    <style>
+        /* --- CSS VARIABLES --- */
+        :root {
+            --bg: #f4f4f5; --bg-card: #ffffff;
+            --text: #18181b; --text-soft: #52525b; --muted: #a1a1aa;
+            --border: #e4e4e7;
+            --accent: #2563eb; --accent-soft: #dbeafe; --accent-fg: #1e40af;
+            --danger: #ef4444; --danger-bg: #fee2e2;
+            --success: #10b981; --success-bg: #d1fae5;
+            --warning: #f59e0b; --warning-bg: #fef3c7;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --radius-card: 12px; --radius-input: 8px;
+            --nav-height: 60px; --top-height: 100px; /* Taller for Sync ID */
+        }
+        
+        /* Themes */
+        body[data-theme="gray"] { --bg: #18181b; --bg-card: #27272a; --text: #f4f4f5; --text-soft: #a1a1aa; --muted: #52525b; --border: #3f3f46; --accent: #e4e4e7; --accent-soft: #3f3f46; --accent-fg: #ffffff; }
+        body[data-theme="sand"] { --bg: #fdf6e3; --bg-card: #eee8d5; --text: #433633; --border: #d6d3d1; --accent: #d97706; --accent-soft: #fde68a; --accent-fg: #92400e; }
+        body[data-theme="ocean"] { --bg: #0f172a; --bg-card: #1e293b; --text: #e2e8f0; --border: #334155; --accent: #06b6d4; --accent-soft: #164e63; --accent-fg: #cffafe; }
+        body[data-theme="forest"] { --bg: #14251f; --bg-card: #1e352f; --text: #ecfccb; --border: #384e3c; --accent: #84cc16; --accent-soft: #365314; --accent-fg: #d9f99d; }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* --- LAYOUT --- */
+        .app-container { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; width: 100%; }
+
+        /* --- TOP BAR (Redesigned for Sync) --- */
+        .top-bar {
+            height: var(--top-height); background: var(--bg-card); border-bottom: 1px solid var(--border);
+            padding: 10px 16px; display: flex; flex-direction: column; justify-content: center; gap: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); z-index: 10;
+        }
+        .top-row { display: flex; justify-content: space-between; align-items: center; }
+        .app-identity { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+        .logo-badge { background: var(--accent); color: var(--bg-card); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        
+        /* SYNC CONTROLS */
+        .sync-row { display: flex; gap: 8px; align-items: center; }
+        .sync-input { 
+            flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); 
+            border-radius: 6px; background: var(--bg); color: var(--text); outline: none;
+        }
+        .sync-input:focus { border-color: var(--accent); }
+        .status-pill {
+            font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px;
+            background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+            white-space: nowrap; transition: 0.3s;
+        }
+        .status-pill.active { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+        .status-pill.updating { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
+        .status-pill.error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+        /* --- MAIN --- */
+        .main-content { flex: 1; overflow-y: auto; padding: 16px 16px 80px 16px; display: none; }
+        .main-content.active { display: block; }
+        .centered-col { max-width: 480px; margin: 0 auto; }
+
+        /* --- COMPONENTS --- */
+        .card { background: var(--bg-card); border-radius: var(--radius-card); padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .card-header { display: flex; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 18px; }
+        .btn { border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; background: var(--bg); color: var(--text); }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-ghost { background: transparent; color: var(--accent); }
+        .btn-danger { background: transparent; color: var(--danger); }
+        .list-item { padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        input[type="text"], textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 6px; }
+
+        /* --- NAV --- */
+        .bottom-nav { height: var(--nav-height); background: var(--bg-card); border-top: 1px solid var(--border); position: fixed; bottom: 0; left: 0; right: 0; display: flex; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
+        .nav-btn { flex: 1; border: none; background: transparent; color: var(--muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+        .nav-btn.active { color: var(--accent-fg); background: var(--accent-soft); }
+
+        /* --- MODAL --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(2px); }
+        .modal-overlay.active { display: flex; }
+        .modal-card { background: var(--bg-card); width: 100%; max-width: 400px; border-radius: 12px; padding: 20px; position: relative; }
+
+        /* --- PILLS --- */
+        .chain-display { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px; border: 1px dashed var(--border); border-radius: 8px; min-height: 50px; margin-bottom: 10px; }
+        .pill { border: 1px solid var(--accent); color: var(--text); padding: 4px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: var(--bg-card); }
+    </style>
+</head>
+<body data-theme="light">
+
+<div class="app-container">
+    <header class="top-bar">
+        <div class="top-row">
+            <div class="app-identity">
+                <div class="logo-badge">MT</div>
+                <span>Mind Threads</span>
+            </div>
+            <select class="sync-input" style="width: 80px; flex:none;" onchange="window.switchTheme(this.value)">
+                <option value="light">Light</option>
+                <option value="gray">Gray</option>
+                <option value="sand">Sand</option>
+                <option value="ocean">Ocean</option>
+                <option value="forest">Forest</option>
+            </select>
+        </div>
+        <div class="sync-row">
+            <input type="text" id="sync-id-input" class="sync-input" placeholder="Enter Sync ID (e.g. team-1)" onblur="window.updateSyncId()">
+            <div id="sync-status" class="status-pill">Offline</div>
+        </div>
+    </header>
+
+    <main id="page-elements" class="main-content active">
+        <div class="centered-col">
+            <div class="card">
+                <div class="card-header">Elements <span id="el-count" style="font-size:14px; color:var(--muted)">0</span></div>
+                <div id="elements-list" style="max-height:300px; overflow-y:auto;"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Add / Edit</div>
+                <input type="hidden" id="el-id">
+                <input type="text" id="el-tag" placeholder="Tag (e.g. IDEA)">
+                <textarea id="el-ctx" rows="3" placeholder="Context text..."></textarea>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary" onclick="window.saveElement()">Save</button>
+                    <button class="btn btn-danger" onclick="window.deleteElement()">Delete</button>
+                    <button class="btn" onclick="window.clearForm()">Clear</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="page-threads" class="main-content">
+        <div class="centered-col">
+            <div class="card">
+                <div class="card-header">Current Thread</div>
+                <div id="current-chain" class="chain-display"><span style="color:var(--muted); font-size:12px; width:100%; text-align:center;">Add elements below</span></div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-primary" onclick="window.saveThread()">Save Thread</button>
+                    <button class="btn" onclick="window.undoChain()">Undo</button>
+                    <button class="btn" onclick="window.clearChain()">Clear</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Picker</div>
+                <div id="picker-list" style="max-height:200px; overflow-y:auto;"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Threads History</div>
+                <div id="threads-list" style="max-height:300px; overflow-y:auto;"></div>
+            </div>
+        </div>
+    </main>
+
+    <main id="page-analysis" class="main-content">
+        <div class="centered-col">
+            <div class="card">
+                <div class="card-header">Stats</div>
+                <div id="analysis-content"></div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="window.switchPage('elements', this)">Elements</button>
+        <button class="nav-btn" onclick="window.switchPage('threads', this)">Threads</button>
+        <button class="nav-btn" onclick="window.switchPage('analysis', this)">Analysis</button>
+    </nav>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCecQWk3AdWqA016gFtamAxmnQrS58I3Fs",
+        authDomain: "mindmap-58ea4.firebaseapp.com",
+        projectId: "mindmap-58ea4",
+        storageBucket: "mindmap-58ea4.firebasestorage.app",
+        messagingSenderId: "984406880104",
+        appId: "1:984406880104:web:b877f2210873775f3170dd",
+        measurementId: "G-YJT43715BT"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // STATE
+    let appData = { elements: [], threads: [], theme: 'light', elementCounter: 0 };
+    let currentThreadIds = [];
+    let editingThreadId = null;
+    let currentUser = null;
+    let syncId = null; // Custom ID for syncing
+    let unsubscribe = null; // To stop listener when switching IDs
+
+    // --- SYNC LOGIC ---
+
+    // 1. Initialize
+    const savedSyncId = localStorage.getItem('mt_sync_id');
+    const savedData = localStorage.getItem('mt_local_data');
+    
+    if(savedData) {
+        try { appData = { ...appData, ...JSON.parse(savedData) }; applyTheme(appData.theme); renderAll(); } catch(e){}
+    }
+
+    // Connect Auth
+    signInAnonymously(auth).then(creds => {
+        currentUser = creds.user;
+        // If user previously set a sync ID, use it. Otherwise use their UID (private)
+        syncId = savedSyncId || currentUser.uid;
+        document.getElementById('sync-id-input').value = syncId;
+        connectToSyncId(syncId);
+    }).catch(err => setStatus('error', 'Auth Error'));
+
+    // 2. Connect Function
+    function connectToSyncId(id) {
+        if(unsubscribe) unsubscribe(); // Detach old listener
+        setStatus('updating', 'Connecting...');
+        
+        // Determine Path: if it looks like a UID (28 chars), use 'users', else 'rooms'
+        const collection = (id.length === 28) ? 'users' : 'rooms';
+        const docRef = doc(db, 'artifacts', 'mind-threads-v1', collection, id);
+
+        // START LISTENER
+        unsubscribe = onSnapshot(docRef, (snap) => {
+            if(snap.exists()) {
+                console.log("Cloud update received");
+                const cloudData = snap.data();
+                
+                // FORCE OVERWRITE LOCAL DATA
+                appData = { ...appData, ...cloudData };
+                
+                // Ensure arrays exist (prevent crash if cloud sends empty object)
+                if(!appData.elements) appData.elements = [];
+                if(!appData.threads) appData.threads = [];
+
+                // Update UI immediately
+                localStorage.setItem('mt_local_data', JSON.stringify(appData));
+                applyTheme(appData.theme);
+                renderAll();
+                setStatus('active', 'Synced');
+            } else {
+                // If doc doesn't exist yet, we save our current local data to create it
+                console.log("New sync ID, creating doc...");
+                saveToCloud(true);
+            }
+        }, (err) => {
+            console.error(err);
+            setStatus('error', 'Perms Error');
+        });
+    }
+
+    // 3. Save Function
+    async function saveToCloud(isInitial = false) {
+        if (!currentUser || !syncId) return;
+        if (!isInitial) setStatus('updating', 'Saving...');
+        
+        // Persist local first
+        localStorage.setItem('mt_local_data', JSON.stringify(appData));
+        
+        const collection = (syncId.length === 28) ? 'users' : 'rooms';
+        const docRef = doc(db, 'artifacts', 'mind-threads-v1', collection, syncId);
+
+        try {
+            await setDoc(docRef, appData);
+            // We don't set 'Synced' here, we wait for onSnapshot to confirm it coming back
+        } catch(e) {
+            console.error(e);
+            setStatus('error', 'Save Failed');
+        }
+    }
+
+    // --- UI ACTIONS ---
+
+    window.updateSyncId = function() {
+        const input = document.getElementById('sync-id-input').value.trim();
+        if(input && input !== syncId) {
+            syncId = input;
+            localStorage.setItem('mt_sync_id', syncId);
+            connectToSyncId(syncId);
+        }
+    }
+
+    function setStatus(type, text) {
+        const el = document.getElementById('sync-status');
+        el.className = `status-pill ${type}`;
+        el.textContent = text;
+    }
+
+    // --- APP LOGIC (Simplified) ---
+
+    window.saveElement = function() {
+        const id = document.getElementById('el-id').value;
+        const tag = document.getElementById('el-tag').value;
+        const ctx = document.getElementById('el-ctx').value;
+        if(!tag) return alert("Tag needed");
+
+        if(id) {
+            const el = appData.elements.find(e => e.code === id);
+            if(el) { el.tag = tag; el.context = ctx; }
+        } else {
+            appData.elementCounter++;
+            appData.elements.push({ 
+                code: `E-${appData.elementCounter}`, 
+                tag, context: ctx, id: Date.now() 
+            });
+        }
+        window.clearForm();
+        saveToCloud();
+    }
+
+    window.deleteElement = function() {
+        const id = document.getElementById('el-id').value;
+        if(!id) return;
+        appData.elements = appData.elements.filter(e => e.code !== id);
+        window.clearForm();
+        saveToCloud();
+    }
+
+    window.clearForm = function() {
+        document.getElementById('el-id').value = '';
+        document.getElementById('el-tag').value = '';
+        document.getElementById('el-ctx').value = '';
+    }
+
+    window.loadElement = function(code) {
+        const el = appData.elements.find(e => e.code === code);
+        if(!el) return;
+        document.getElementById('el-id').value = el.code;
+        document.getElementById('el-tag').value = el.tag;
+        document.getElementById('el-ctx').value = el.context;
+    }
+
+    window.saveThread = function() {
+        if(currentThreadIds.length === 0) return;
+        if(editingThreadId) {
+            const t = appData.threads.find(x => x.id === editingThreadId);
+            if(t) t.elementIds = [...currentThreadIds];
+        } else {
+            appData.threads.unshift({ id: 't-'+Date.now(), elementIds: [...currentThreadIds] });
+        }
+        currentThreadIds = [];
+        editingThreadId = null;
+        renderChain();
+        saveToCloud();
+    }
+
+    window.addToChain = function(code) { currentThreadIds.push(code); renderChain(); }
+    window.undoChain = function() { currentThreadIds.pop(); renderChain(); }
+    window.clearChain = function() { currentThreadIds = []; editingThreadId = null; renderChain(); }
+
+    window.switchTheme = function(t) {
+        appData.theme = t;
+        applyTheme(t);
+        saveToCloud();
+    }
+
+    function applyTheme(t) { document.body.dataset.theme = t; }
+
+    window.switchPage = function(page, btn) {
+        document.querySelectorAll('.main-content').forEach(e => e.classList.remove('active'));
+        document.getElementById('page-'+page).classList.add('active');
+        document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
+        btn.classList.add('active');
+        renderAll();
+    }
+
+    // --- RENDERERS ---
+
+    function renderAll() {
+        // Elements
+        const elList = document.getElementById('elements-list');
+        elList.innerHTML = appData.elements.map(e => `
+            <div class="list-item">
+                <div onclick="window.loadElement('${e.code}')" style="flex:1">
+                    <b>${e.code}</b> · ${e.tag}
+                </div>
+            </div>`).join('');
+        document.getElementById('el-count').textContent = appData.elements.length;
+
+        // Picker
+        document.getElementById('picker-list').innerHTML = appData.elements.map(e => `
+            <div class="list-item">
+                <span>${e.code} · ${e.tag}</span>
+                <button class="btn btn-primary" onclick="window.addToChain('${e.code}')">+</button>
+            </div>`).join('');
+
+        // Threads
+        document.getElementById('threads-list').innerHTML = appData.threads.map(t => `
+            <div class="list-item">
+                <div style="font-size:12px; overflow:hidden;">${t.elementIds.join(' → ')}</div>
+            </div>`).join('');
+        
+        renderChain();
+    }
+
+    function renderChain() {
+        const c = document.getElementById('current-chain');
+        if(currentThreadIds.length === 0) c.innerHTML = '<span style="color:var(--muted); font-size:12px; width:100%; text-align:center;">Add elements below</span>';
+        else c.innerHTML = currentThreadIds.map(id => {
+            const el = appData.elements.find(e=>e.code === id);
+            return `<div class="pill">${id} ${el ? el.tag : ''}</div>`;
+        }).join('<span style="color:var(--muted)">→</span>');
+    }
+
+</script>
+</body>
+</html>
