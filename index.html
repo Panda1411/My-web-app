@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="corporate">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apni baatein</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-active { border-bottom: 2px solid #2563eb !important; color: #2563eb !important; }
+        .date-picker-custom::-webkit-calendar-picker-indicator { cursor: pointer; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <header class="navbar bg-white border-b border-base-300 px-4 lg:px-12 sticky top-0 z-50">
+        <div class="flex-1">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                    <i data-lucide="database" class="w-5 h-5"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight">Apni baatein<span class="text-blue-600"> + </span></span>
+            </div>
+        </div>
+        <div class="flex-none gap-4">
+            <div id="sync-status" class="badge badge-ghost gap-2 py-4 px-4 border-none bg-slate-100">
+                <span class="relative flex h-2 w-2">
+                    <span id="ping-dot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                </span>
+                <span id="status-text" class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Connected</span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="flex justify-center bg-white border-b border-base-200">
+        <div class="tabs tabs-bordered">
+            <button id="tab-write" class="tab tab-lg tab-active gap-2"><i data-lucide="pen-tool" class="w-4 h-4"></i> Write</button>
+            <button id="tab-archive" class="tab tab-lg gap-2"><i data-lucide="archive" class="w-4 h-4"></i> Archive</button>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto mt-8 px-4 pb-20">
+        
+        <div id="page-write" class="space-y-6">
+            <div class="card bg-white shadow-sm border border-base-300">
+                <div class="card-body p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-bold uppercase tracking-widest text-slate-400">New Entry</h2>
+                        <span id="today-date-label" class="text-xs font-medium text-slate-400"></span>
+                    </div>
+                    <textarea id="text-input" class="textarea textarea-ghost focus:bg-slate-50 h-40 w-full text-lg leading-relaxed resize-none border-none p-0 focus:ring-0" placeholder="Type something important..."></textarea>
+                    <div class="card-actions justify-end pt-4 border-t border-slate-50">
+                        <button id="save-btn" class="btn btn-primary btn-md rounded-xl px-8 shadow-lg shadow-blue-100">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            Save Entry
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4 px-2">Today's Timeline</h3>
+                <div id="today-logs" class="space-y-3">
+                    </div>
+            </div>
+        </div>
+
+        <div id="page-archive" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-base-200 shadow-sm">
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <div class="form-control">
+                        <input type="date" id="date-filter" class="input input-bordered input-sm date-picker-custom" />
+                    </div>
+                    <button id="reset-filter" class="btn btn-ghost btn-sm">Clear</button>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button id="export-filtered" class="btn btn-outline btn-sm gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i> Export Day
+                    </button>
+                    <button id="export-all" class="btn btn-outline btn-sm gap-2">
+                        <i data-lucide="copy" class="w-4 h-4"></i> Export All
+                    </button>
+                </div>
+            </div>
+
+            <div id="archive-logs" class="space-y-4">
+                </div>
+        </div>
+
+    </main>
+
+    <dialog id="delete_modal" class="modal">
+        <div class="modal-box max-w-sm">
+            <h3 class="font-bold text-lg text-error">Confirm Deletion</h3>
+            <p class="py-4">This action cannot be undone. Are you sure you want to remove this entry?</p>
+            <div class="modal-action">
+                <button class="btn btn-ghost" onclick="delete_modal.close()">Cancel</button>
+                <button id="confirm-delete-btn" class="btn btn-error">Delete Forever</button>
+            </div>
+        </div>
+    </dialog>
+
+    <div id="toast-container" class="toast toast-bottom toast-center z-[100]"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOwPmG32MUiRbm5tXhx3onqYcH_aNw7n4",
+            authDomain: "act-of-beauty.firebaseapp.com",
+            projectId: "act-of-beauty",
+            storageBucket: "act-of-beauty.firebasestorage.app",
+            messagingSenderId: "467146385406",
+            appId: "1:467146385406:web:540824afe9233fa38e42af"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const logCol = collection(db, "user_logs");
+
+        // App State
+        let allEntries = [];
+        let deleteId = null;
+
+        // UI Selectors
+        const ui = {
+            input: document.getElementById('text-input'),
+            saveBtn: document.getElementById('save-btn'),
+            todayLogs: document.getElementById('today-logs'),
+            archiveLogs: document.getElementById('archive-logs'),
+            dateFilter: document.getElementById('date-filter'),
+            todayLabel: document.getElementById('today-date-label'),
+            statusText: document.getElementById('status-text'),
+            statusDot: document.getElementById('ping-dot')
+        };
+
+        // Date Helpers
+        const getISODate = (date) => date.toISOString().split('T')[0];
+        const formatDisplayDate = (date) => new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        
+        ui.todayLabel.innerText = formatDisplayDate(new Date());
+        ui.dateFilter.value = getISODate(new Date());
+
+        // Navigation
+        document.getElementById('tab-write').onclick = (e) => togglePage('write', e.target);
+        document.getElementById('tab-archive').onclick = (e) => togglePage('archive', e.target);
+
+        function togglePage(page, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active'));
+            el.classList.add('tab-active');
+            document.getElementById('page-write').classList.toggle('hidden', page !== 'write');
+            document.getElementById('page-archive').classList.toggle('hidden', page !== 'archive');
+        }
+
+        // Firebase Operations
+        const setSyncStatus = (status) => {
+            if(status === 'syncing') {
+                ui.statusText.innerText = 'Updating...';
+                ui.statusDot.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75';
+            } else {
+                ui.statusText.innerText = 'Connected';
+                ui.statusDot.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75';
+            }
+        }
+
+        ui.saveBtn.onclick = async () => {
+            const val = ui.input.value.trim();
+            if(!val) return;
+            
+            setSyncStatus('syncing');
+            try {
+                await addDoc(logCol, { content: val, timestamp: serverTimestamp() });
+                ui.input.value = '';
+                showToast("Entry secured.");
+            } catch (err) { console.error(err); }
+            setSyncStatus('idle');
+        };
+
+        window.prepDelete = (id) => {
+            deleteId = id;
+            document.getElementById('delete_modal').showModal();
+        };
+
+        document.getElementById('confirm-delete-btn').onclick = async () => {
+            if(!deleteId) return;
+            await deleteDoc(doc(db, "user_logs", deleteId));
+            document.getElementById('delete_modal').close();
+            showToast("Entry removed.");
+        };
+
+        // Real-time Listener
+        const q = query(logCol, orderBy("timestamp", "desc"));
+        onSnapshot(q, (snapshot) => {
+            allEntries = snapshot.docs.map(d => ({ 
+                id: d.id, 
+                ...d.data(), 
+                jsDate: d.data().timestamp ? d.data().timestamp.toDate() : new Date() 
+            }));
+            render();
+        });
+
+        function render() {
+            const todayStr = getISODate(new Date());
+            const filterStr = ui.dateFilter.value;
+
+            // Render Today's Page
+            const todayItems = allEntries.filter(e => getISODate(e.jsDate) === todayStr);
+            ui.todayLogs.innerHTML = todayItems.length ? todayItems.map(e => renderCard(e)).join('') : emptyState();
+
+            // Render Archive Page
+            const archiveItems = allEntries.filter(e => getISODate(e.jsDate) === filterStr);
+            ui.archiveLogs.innerHTML = archiveItems.length ? archiveItems.map(e => renderCard(e)).join('') : emptyState("No entries for this date.");
+
+            lucide.createIcons();
+        }
+
+        function renderCard(item) {
+            const time = item.jsDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="group bg-white border border-base-200 p-5 rounded-xl hover:border-blue-200 transition-all relative shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black uppercase tracking-tighter text-blue-500 bg-blue-50 px-2 py-1 rounded-md mb-3 inline-block">${time}</span>
+                        <button onclick="prepDelete('${item.id}')" class="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <p class="text-slate-700 leading-relaxed whitespace-pre-wrap">${item.content}</p>
+                </div>
+            `;
+        }
+
+        function emptyState(msg = "Ready for your first entry of the day.") {
+            return `<div class="py-10 text-center opacity-30 flex flex-col items-center">
+                <i data-lucide="ghost" class="w-8 h-8 mb-2"></i>
+                <p class="text-sm font-medium">${msg}</p>
+            </div>`;
+        }
+
+        // Export Logic
+        const downloadFile = (data, filename) => {
+            const blob = new Blob([data], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+        };
+
+        const formatForExport = (entries) => {
+            return entries.map(e => `[${e.jsDate.toLocaleString()}]\n${e.content}\n${'-'.repeat(20)}`).join('\n\n');
+        };
+
+        document.getElementById('export-all').onclick = () => {
+            const data = formatForExport(allEntries);
+            downloadFile(data, `All_Entries_${getISODate(new Date())}.txt`);
+        };
+
+        document.getElementById('export-filtered').onclick = () => {
+            const filterStr = ui.dateFilter.value;
+            const items = allEntries.filter(e => getISODate(e.jsDate) === filterStr);
+            if(!items.length) return showToast("Nothing to export for this date", "warning");
+            downloadFile(formatForExport(items), `LogSync_${filterStr}.txt`);
+        };
+
+        document.getElementById('reset-filter').onclick = () => {
+            ui.dateFilter.value = getISODate(new Date());
+            render();
+        };
+
+        ui.dateFilter.onchange = render;
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = 'alert bg-slate-800 text-white border-none text-sm shadow-2xl px-6 py-3 rounded-2xl';
+            t.innerHTML = `<span>${msg}</span>`;
+            ui.statusText.closest('body').querySelector('#toast-container').appendChild(t);
+            setTimeout(() => t.remove(), 2500);
+        }
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>
